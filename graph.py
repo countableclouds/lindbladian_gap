@@ -20,8 +20,8 @@ class GenericGraph:
         self.hamiltonian = M
         self.jumps = jumps
         eig = np.linalg.eigh(M)
-        self.energies = eig.eigenvalues
-        self.eigenbasis = eig.eigenvectors
+        self.energies = np.array(eig.eigenvalues)
+        self.eigenbasis = np.array(eig.eigenvectors)
 
     def jumps_transition(self, a, b, l, m):
         if self.jumps == "diagonal":
@@ -35,10 +35,10 @@ class GenericGraph:
         self, a, b, l, m
     ):  # returns the ((a,b), (l,m)) jump coefficient of the Lindbladian, using jumps to adjacent vertices
         n = self.n
-        S = sum([self.eigenbasis[i, a] * # this is c_{ia}, since each column is an eigenvector
-                 self.eigenbasis[i, b].conjugate() * 
-                 self.eigenbasis[i, l].conjugate() * 
-                 self.eigenbasis[i, m] for i in range(n)])
+        S = np.sum(self.eigenbasis[:, a] * # this is c_{ia}, since each column is an eigenvector
+                 self.eigenbasis[:, b] * 
+                 self.eigenbasis[:, l] * 
+                 self.eigenbasis[:, m], axis=0)
 
         return S
 

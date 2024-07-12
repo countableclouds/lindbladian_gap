@@ -91,24 +91,20 @@ class Lindbladian:
 
         M = np.zeros((n, n, n, n), dtype=complex)
         C = np.zeros((n, n, n, n), dtype=complex)
+        
 
-        for a, b, l, m in itertools.product(range(0, n), repeat=4):
-                
-            transition_coeff = graph.jumps_transition(a, b, l, m)
-            if transition_coeff:
-                M[a, b, l, m] += transition_coeff * filter.bohr_coefficient(
-                    v(a, l), v(b, m)
-                )
+        a, b, l, m = np.indices((n, n, n, n))
+        M += graph.jumps_transition(a, b, l, m) * filter.bohr_coefficient(v(a, l), v(b, m))
             
-
-            if m == b:
-                # pass
-                M[a, b, l, m] += -1 / 2 * C_bohr[l, a]
-                C[a, b, l, m] += -1 / 2 * C_coh[l, a]
-            if l == a:
-                # pass
-                M[a, b, l, m] += -1 / 2 * C_bohr[b, m]
-                C[a, b, l, m] += 1 / 2 * C_coh[b, m]
+        for a, b, l in itertools.product(range(0, n), repeat=3):
+            m = b
+            M[a, b, l, m] += -1 / 2 * C_bohr[l, a]
+            C[a, b, l, m] += -1 / 2 * C_coh[l, a]
+                    
+        for a, b, m in itertools.product(range(0, n), repeat=3):
+            l = a
+            M[a, b, l, m] += -1 / 2 * C_bohr[b, m]
+            C[a, b, l, m] += 1 / 2 * C_coh[b, m]
 
         D = np.matrix(M.reshape(n**2, n**2))
         M_c = np.matrix(C.reshape(n**2, n**2))

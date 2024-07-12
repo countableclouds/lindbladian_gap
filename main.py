@@ -12,7 +12,7 @@ import figure
 beta = 1
 gaps_ = []
 
-GRAPH= 'complete'
+GRAPH= 'pathh'
 FILTER = 'ckg_metropolis'
 SLOPE = 0
 NAME = f"{FILTER}_{GRAPH}"
@@ -26,14 +26,14 @@ if LOAD:
 
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
 start = 3
-end = 20
+end = 50
 
 if LOAD:
     print('Loaded.')
 else:
     for n in tqdm(range(start, end)):
-        # M = graph.CompleteGraph.adj_matrix(n)
-        G = graph.Graph.from_name(GRAPH)(n, "diagonal")
+        M = graph.PathGraph.adj_matrix(n)
+        G = graph.Graph.from_name(GRAPH)(M, n, "diagonal")
         L = lindbladian.Lindbladian(G, F)
         gaps_.append(L.spectral_gap(assertion=True))
         

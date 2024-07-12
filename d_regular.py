@@ -28,12 +28,12 @@ NAME = f"{FILTER}_{GRAPH}"
 F = filter.Filter.from_name(FILTER)(1)
 
 
-LOAD = True
+LOAD = False
 SAVE = False
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
-start = 5
-end = 25
-TRIALS = 100
+start = 50
+end = 51
+TRIALS = 10
 d = 4
 seed = 0
 err= []
@@ -42,33 +42,35 @@ if LOAD:
     gaps_ = data.load(NAME)
     print('Loaded.')
 else:
-    for n in range(start, end, 5):
-        trial_data = []
-        for trial in range(TRIALS):
-            if trial%10==0:
-                print(n, trial)
-            G_draw, M = regular_sample(d, n, hash((d, n, trial, seed)))
-            G = graph.Graph.from_name(GRAPH)(M, n, "diagonal")
-            L = lindbladian.Lindbladian(G, F)
-            trial_data.append(L.spectral_gap(assertion=True))
+    for n in range(start, end):
+        try:
+            trial_data = []
+            for trial in range(TRIALS):
+                # if trial%25==0:
+                G_draw, M = regular_sample(d, n, hash((d, n, trial, seed)))
+                G = graph.Graph.from_name(GRAPH)(M, n, "diagonal")
+                L = lindbladian.Lindbladian(G, F)
+                trial_data.append(L.spectral_gap(assertion=True))
+                print(n, trial, trial_data[-1])
 
-        trial_data = [elem for elem in trial_data if round(elem, 10)!=0]
-        
-        gap = np.mean(trial_data)
-        std = np.std(trial_data)
-        print(gap, std, std / np.sqrt(TRIALS))
-        err.append(std / np.sqrt(TRIALS))
-        gaps_.append(gap)
+            trial_data = [elem for elem in trial_data if round(elem, 10)!=0]
+            
+            gap = np.mean(trial_data)
+            std = np.std(trial_data)
+            print(gap, std, std / np.sqrt(TRIALS),std / np.sqrt(TRIALS)/gap*100)
+            err.append(std / np.sqrt(TRIALS))
+            gaps_.append(gap)
+        except:
+            break
         
     if SAVE:
         data.save(gaps_, NAME)
         print('Data Saved.')
 
 
-gaps_ = [0.06234058259659126, 0.051196775407997046, 0.03832856850102053, 0.032226344375980626]
 
 
-xs = np.array(range(start, end, 5))
+xs = np.array(range(start, len(gaps_) + start))
 gaps = np.array(gaps_)
 ln_xs = np.log(xs)
 ln_gaps = np.log(gaps)
