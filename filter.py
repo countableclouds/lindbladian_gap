@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.integrate as integrate
 import scipy
+import random
 
 def gauss_int(a, b, c, d_0, d_1): # calculating the Gaussian integral of exp(-(ax^2+bx+c)) from d_0 to d_1 (none if infinity)
     f = lambda d:scipy.special.erf((d *a + b/2)/np.sqrt(a))+1
@@ -10,7 +11,16 @@ def gauss_int(a, b, c, d_0, d_1): # calculating the Gaussian integral of exp(-(a
     res *= np.sqrt(np.pi/a)/2 * np.exp(b**2/(4*a) - c)
     return res
 
-         
+class Filter:
+    def from_name(type):
+        if type == 'ckg_metropolis':
+            return MetropolisFilterCKG
+        if type == 'davies_metropolis':
+            return MetropolisFilter
+        if type == 'ckg_gaussian':
+            return GaussianFilterCKG
+        if type=='davies_glauber':
+            return GlauberFilter
 
 class MetropolisFilterCKG:
     def __init__(self, beta, s_e = None): 
@@ -25,8 +35,6 @@ class MetropolisFilterCKG:
 
     
     def bohr_coefficient(self, v_1, v_2): # given two Bohr frequencies v_1 and v_2, get the filter scaling
-        # if v_1 != v_2:
-        #     return 0
         s_e, beta = self.s_e, self.beta
         a = 1/(2 * s_e**2)
         b = -(v_1+v_2)/(2*s_e**2)
@@ -36,6 +44,10 @@ class MetropolisFilterCKG:
         c = (v_1**2+v_2**2)/(4 * s_e**2) + beta**2 * s_e**2/2
         res += gauss_int(a, b,c, -s_e**2*beta/2, None)
         res *= 1/(s_e*np.sqrt(8*np.pi))
+        # return 1
+        # random.seed(t)
+        # return random.random()
+        # return np.exp(-beta**2*(v_1 - v_2)**2/8)
         return res
 
     def test_bohr(self, v_1, v_2): # Return error of the optimized Bohr coefficients with the manual calculation. 
@@ -48,6 +60,7 @@ class MetropolisFilterCKG:
     def coherent_coefficient(self, v_1, v_2):
         beta = self.beta
         return np.tanh(-beta * (v_1 - v_2)/4) * self.bohr_coefficient(v_1, v_2)
+
 
         
 class MetropolisFilter:
@@ -66,6 +79,28 @@ class MetropolisFilter:
     def coherent_coefficient(self, v_1, v_2):
         beta = self.beta
         return np.tanh(-beta * (v_1 - v_2)/4) * self.bohr_coefficient(v_1, v_2)
+    
+    def __str__(self):
+        return 'davies_metropolis'
+    
+class GlauberFilter:
+    def __init__(self, beta): 
+        self.beta = beta
+
+    def weight(self, w): 
+        beta = self.beta
+        return 1/(1+np.exp(beta * w))
+
+    def bohr_coefficient(self, v_1, v_2): # given two Bohr frequencies v_1 and v_2, get the filter scaling of the jump from v_1 to v_2
+        beta = self.beta
+        return (v_1 == v_2) * self.weight(v_1)
+
+
+    def coherent_coefficient(self, v_1, v_2):
+        beta = self.beta
+        return np.tanh(-beta * (v_1 - v_2)/4) * self.bohr_coefficient(v_1, v_2)
+    
+
 
 
 class GaussianFilterCKG: # The filter is a Gaussian on the frequencies of the jump operators
@@ -85,7 +120,13 @@ class GaussianFilterCKG: # The filter is a Gaussian on the frequencies of the ju
         return res
 
         
+    def coherent_coefficient(self, v_1, v_2):
+        beta = self.beta
+        return np.tanh(-beta * (v_1 - v_2)/4) * self.bohr_coefficient(v_1, v_2)
+    
     def from_beta(beta):
-        return GaussianFilterCKG(1/beta, 1/beta, 1/beta, beta)
+        return GaussianFilterCKG(beta, 1/beta, 1/beta, 1/beta)
+    
+
 
         
