@@ -2,7 +2,7 @@ import numpy as np
 import itertools
 
 class Graph:
-    def from_name(type):
+    def from_name(type, adj):
         if type == "complete":
             return CompleteGraph
         if type =='cyclic':
@@ -12,38 +12,33 @@ class Graph:
         if type =='hypercube':
             return HypercubeGraph
         else:
-            return GenericGraph
+            return lambda n, jumps: GenericGraph(adj, n, jumps)
         
 class GenericGraph:
     def __init__(self, M, n, jumps):
         self.n = n
         self.hamiltonian = M
-        self.jumps = jumps
-        eig = np.linalg.eigh(M)
+
+        self.jumps = np.array(jumps)
         self.energies = np.array(eig.eigenvalues)
         self.eigenbasis = np.array(eig.eigenvectors)
+        jump_nonzeros = np.array([self.jumps[np.nonzero(self.jumps)]]).transpose()
+        self.jump_rows = np.sqrt(jump_nonzeros) * self.eigenbasis[np.nonzero(self.jumps)[0], :]
+        self.jump_columns = np.sqrt(jump_nonzeros) * self.eigenbasis[np.nonzero(self.jumps)[1], :]
 
-    def jumps_transition(self, a, b, l, m):
-        if self.jumps == "diagonal":
-            return self.jumps_diag_trans(a, b, l, m)
-
-    def jumps_decay(self, a, l, j):
-        if self.jumps == "diagonal":
-            return self.jumps_diag_decay(a, l, j)
-
-    def jumps_diag_trans(
+    def jumps_transition(
         self, a, b, l, m
     ):  # returns the ((a,b), (l,m)) jump coefficient of the Lindbladian, using jumps to adjacent vertices
         n = self.n
-        S = np.sum(self.eigenbasis[:, a] * # this is c_{ia}, since each column is an eigenvector
-                 self.eigenbasis[:, b] * 
-                 self.eigenbasis[:, l] * 
-                 self.eigenbasis[:, m], axis=0)
+        S = np.sum(self.jump_rows[:, a].conjugate() * # this is c_{ia}, since each column is an eigenvector
+                 self.jump_rows[:, b] * 
+                 self.jump_columns[:, l] * 
+                 self.jump_columns[:, m].conjugate(), axis=0)
 
         return S
 
-    def jumps_diag_decay(self, a, l, j):
-        return self.jumps_diag_trans(j,a,j,l)
+    def jumps_decay(self, b, m, j):
+        return self.jumps_transition(j,j,b, m)
         
 class HypercubeGraph:
     def __init__(self, n, jumps):
@@ -166,12 +161,12 @@ class CyclicGraph:
         self, a, b, l, m
     ):  # returns the ((a,b), (l,m)) jump coefficient of the Lindbladian, using jumps to adjacent vertices
         n = self.n
-        return ((a + m - l - b) % n == 0) * 1 / n
+        return (((a + m - l - b) % n) == 0) * 1 / n
 
     def jumps_diag_decay(self, a, l, j):
         coeff = 0
         if l == a:
-            coeff = 1 / self.n
+            coeff = 1 / self.n 
 
         return coeff
 
@@ -181,13 +176,10 @@ class CyclicGraph:
         n = self.n
         z_n = np.exp(complex(0, 2 * np.pi / n))
 
-        return ((a + m - l - b) % n == 0) * (z_n ** (l - m) + z_n ** (m - l)) / (2 * n)
-
-    def jumps_adjacent_decay(self, a, l, j):
-        coeff = 0
-        if l == a:
-            coeff = 1 / self.n
-        return coeff
+        return ((a + m - l - b) % n == 0) * (z_n ** (m - l) + z_n ** (l - m)) / (2 * n)
+    
+    def jumps_adjacent_decay(self, b, m, j):
+        return self.jumps_adjacent_trans(j, j, b, m)
 
 
 

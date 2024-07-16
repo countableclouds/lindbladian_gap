@@ -12,7 +12,7 @@ import figure
 beta = 1
 gaps_ = []
 
-GRAPH= 'pathh'
+GRAPH= 'cyclic'
 FILTER = 'ckg_metropolis'
 SLOPE = 0
 NAME = f"{FILTER}_{GRAPH}"
@@ -25,26 +25,36 @@ if LOAD:
     gaps_ = data.load(NAME)
 
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
-start = 3
-end = 50
+start = 4
+end = 20
+pbar = tqdm(total=end-start)
 
 if LOAD:
     print('Loaded.')
 else:
-    for n in tqdm(range(start, end)):
-        M = graph.PathGraph.adj_matrix(n)
-        G = graph.Graph.from_name(GRAPH)(M, n, "diagonal")
+    for n in range(start, end):
+        start_time = time.time()
+        
+        M = graph.CyclicGraph.adj_matrix(n)
+        N= np.array(graph.CyclicGraph.adj_matrix(n))/np.sqrt(2)
+        N= np.identity(n)
+        G = graph.Graph.from_name(GRAPH, adj = M)(n, N)
         L = lindbladian.Lindbladian(G, F)
         gaps_.append(L.spectral_gap(assertion=True))
+        elapsed_time = time.time() - start_time
+        pbar.set_postfix({"Elapsed Time": f"{elapsed_time:.2f}s"})
+        pbar.update(1)
+        
         
     if SAVE:
         data.save(gaps_, NAME)
         print('Data Saved.')
 
-print(gaps_)
+pbar.close()
 
 xs = np.array(range(start, end))
 gaps = np.array(gaps_)
+print(gaps)
 ln_xs = np.log(xs)
 ln_gaps = np.log(gaps)
 b = np.mean(ln_gaps[-3:] - SLOPE*ln_xs[-3:])

@@ -1,7 +1,7 @@
 import numpy as np
 import itertools
 from scipy import linalg
-
+import time
 
 class Lindbladian:
     def __init__(self, graph, filter):
@@ -12,8 +12,8 @@ class Lindbladian:
         self.rho /= self.rho.trace()
         self.M_d, self.M_c = self.lindbladian_matrix()
         self.M = self.M_d + self.M_c
+        self.discriminant()
         
-        self.D = self.discriminant()
 
     # def lindbladian_matrix(self):
     #     return self.dissipative_matrix() + self.coherent_matrix()
@@ -45,8 +45,10 @@ class Lindbladian:
         for i in range(n):
             for j in range(n):
                 indices.append(j * n + (i + j) % n)
-
-        return (P * self.M * O)[np.ix_(indices, indices)]
+                
+        self.D = (P * self.M_d * O)[np.ix_(indices, indices)]
+        self.M_d = self.M_d[np.ix_(indices, indices)]
+        self.M_c = self.M_c[np.ix_(indices, indices)]
 
     def mat_spectral_gap(M, exact=True, eigs=False, assertion=True):
         if exact:
@@ -56,7 +58,6 @@ class Lindbladian:
         np.matrix.sort(eig)
         if eigs:
             return np.round(np.real(eig), 10)
-
         rounded_eig = np.matrix.round(eig.real, 10)
         if assertion:
             assert rounded_eig[0].real == 0
@@ -65,8 +66,8 @@ class Lindbladian:
 
     def spectral_gap(self, exact=True, eigs=False, assertion=True):
         M = -self.D
-
-        return Lindbladian.mat_spectral_gap(M, exact, eigs, assertion)
+        gap = Lindbladian.mat_spectral_gap(M, exact, eigs, assertion)
+        return gap
 
     def lindbladian_matrix(
         self,
@@ -92,10 +93,9 @@ class Lindbladian:
         M = np.zeros((n, n, n, n), dtype=complex)
         C = np.zeros((n, n, n, n), dtype=complex)
         
-
         a, b, l, m = np.indices((n, n, n, n))
         M += graph.jumps_transition(a, b, l, m) * filter.bohr_coefficient(v(a, l), v(b, m))
-            
+
         for a, b, l in itertools.product(range(0, n), repeat=3):
             m = b
             M[a, b, l, m] += -1 / 2 * C_bohr[l, a]
@@ -109,12 +109,6 @@ class Lindbladian:
         D = np.matrix(M.reshape(n**2, n**2))
         M_c = np.matrix(C.reshape(n**2, n**2))
         
-        indices = []
-        for i in range(n):
-            for j in range(n):
-                indices.append(j * n + (i + j) % n)
-        # n = 4
-        D = D[np.ix_(indices, indices)]
-        M_c = M_c[np.ix_(indices, indices)]
+
 
         return D, M_c

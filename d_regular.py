@@ -10,10 +10,12 @@ import lindbladian
 import figure
 
 def regular_sample(d, n, seed):
+    counter = 0
     while True:
-        G = nx.random_regular_graph(d, n, seed)
+        G = nx.random_regular_graph(d, n, seed+counter)
         if nx.is_connected(G):
             break
+        counter+=1
     A = nx.adjacency_matrix(G).toarray()
     return G, np.matrix(A)
     
@@ -31,9 +33,9 @@ F = filter.Filter.from_name(FILTER)(1)
 LOAD = False
 SAVE = False
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
-start = 50
-end = 51
-TRIALS = 10
+start = 5
+end = 30
+TRIALS = 100
 d = 4
 seed = 0
 err= []
@@ -46,12 +48,13 @@ else:
         try:
             trial_data = []
             for trial in range(TRIALS):
-                # if trial%25==0:
                 G_draw, M = regular_sample(d, n, hash((d, n, trial, seed)))
                 G = graph.Graph.from_name(GRAPH)(M, n, "diagonal")
                 L = lindbladian.Lindbladian(G, F)
                 trial_data.append(L.spectral_gap(assertion=True))
-                print(n, trial, trial_data[-1])
+                if trial%25==0:
+                    print(n, trial, trial_data[-1])
+                
 
             trial_data = [elem for elem in trial_data if round(elem, 10)!=0]
             
@@ -62,6 +65,7 @@ else:
             gaps_.append(gap)
         except:
             break
+
         
     if SAVE:
         data.save(gaps_, NAME)
@@ -79,10 +83,13 @@ b = np.mean(ln_gaps[-3:] - SLOPE*ln_xs[-3:])
 fig, ax = plt.subplots(figsize = (9, 7))
 labels = ['Size of Graph (n)', 'Spectral Gap']
 figure.plot(xs, gaps, ax, labels)
+if SAVE:
+    fig.savefig(f"figures/{NAME}.pdf", bbox_inches='tight', pad_inches=0.25)
 
 fig, ax = plt.subplots(figsize = (9, 7))
 labels = ['Size of Graph (ln n)', 'Log Spectral Gap']
 
 figure.plot(ln_xs, ln_gaps, ax, labels, line=[SLOPE, b])
 
-plt.show()
+if SAVE:
+    fig.savefig(f"figures/lnln_{NAME}.pdf", bbox_inches='tight', pad_inches=0.25)
