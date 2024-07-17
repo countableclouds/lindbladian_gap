@@ -1,8 +1,14 @@
 import numpy as np
 import itertools
+from dataclasses import dataclass
+
+@dataclass
+class EigResult:
+    eigenvalues: int
+    eigenvectors: int
 
 class Graph:
-    def from_name(type, adj):
+    def from_name(type):
         if type == "complete":
             return CompleteGraph
         if type =='cyclic':
@@ -11,15 +17,19 @@ class Graph:
             return PathGraph
         if type =='hypercube':
             return HypercubeGraph
-        else:
-            return lambda n, jumps: GenericGraph(adj, n, jumps)
+        
+    def from_adjacency(adj, eig = None):
+        return lambda jumps: GenericGraph(adj, adj.shape[0], jumps, eig)
         
 class GenericGraph:
-    def __init__(self, M, n, jumps):
+    def __init__(self, M, n, jumps, eig = None):
         self.n = n
         self.hamiltonian = M
 
         self.jumps = np.array(jumps)
+        
+        if eig is None:
+            eig = np.linalg.eigh(M)
         self.energies = np.array(eig.eigenvalues)
         self.eigenbasis = np.array(eig.eigenvectors)
         jump_nonzeros = np.array([self.jumps[np.nonzero(self.jumps)]]).transpose()
@@ -41,21 +51,52 @@ class GenericGraph:
         return self.jumps_transition(j,j,b, m)
         
 class HypercubeGraph:
-    def __init__(self, n, jumps):
-        self.n = 2**n
-        self.hamiltonian = np.matrix(HypercubeGraph.adj_matrix(n))
-        self.jumps = jumps
-        energies= []
-            
-        for i in itertools.product([-1, 1], repeat=n):
-            energies.append(sum(i))
-            
-        self.energies = np.array(energies)
+    def __init__(self, d, jumps):
+        self.n = 2**d
+        self.hamiltonian = np.matrix(HypercubeGraph.adj_matrix(d))
+        self.jumps = jumps            
+        self.energies = np.array(HypercubeGraph.energies(d))
+        n = self.n
         
-    def adj_matrix(n):
-        binary = lambda x: bin(x)[2:].rjust(n, '0')
-        return [
-            [1 if sum ( binary(i)[k]!= binary(j)[k] for k in range(n) )==1 else 0 for j in range(2**n)] for i in range(2**n)]
+        
+    def energies(d):
+        energies= []
+        for i in itertools.product([1, -1], repeat=d):
+            energies.append(sum(i))
+        return energies
+    
+    def eigenvectors(d):
+        H = np.matrix([[1, 1], [1, -1]])
+        M = np.matrix([[1, 1], [1, -1]])
+        for i in range(d-1):
+            M = np.kron(H, M)
+        M = np.array(M)
+        return 2**(-d/2) * M
+            
+    
+    def adj_matrix(d):
+        binary = lambda x: bin(x)[2:].rjust(d, '0')
+        
+        X = np.matrix([[0, 1], [1, 0]])
+        I_2 = np.eye(2, 2)
+        I = np.eye(2, 2)
+        for _ in range(d-2):
+            I = np.tensordot(I, I_2, axes=0)
+        
+        M = np.zeros((2**d, 2**d)).reshape([2]*(2*d))
+        X_0 = np.tensordot(X, I, axes=0)
+        M += X_0
+
+        for i in range(1, d):
+            order= list(range(2, 2*(i+1))) + [0, 1]+list(range(2*(i+1), 2*d))
+            X_i =np.transpose(X_0, order)
+            M += X_i
+
+        order = list(range(0, 2*d, 2))+list(range(1, 2*d, 2))
+        M = np.transpose(M, order)
+        M = M.reshape(2**d, 2**d)
+        
+        return np.array(M)
 
     def jumps_transition(self, a, b, l, m):
         if self.jumps == "diagonal":
@@ -69,15 +110,11 @@ class HypercubeGraph:
         self, a, b, l, m
     ):  # returns the ((a,b), (l,m)) jump coefficient of the Lindbladian, using jumps to adjacent vertices
         n = self.n
-        return ((a + m - l - b) % n == 0) * 1 / n
+        return ((a ^ m ^ l ^ b) % n == 0) * 1 / n
 
     def jumps_diag_decay(self, a, l, j):
-        coeff = 0
         n = self.n
-        if l == a:
-            coeff = 1 /n
-
-        return coeff
+        return (l == a) * 1 /n
 
 class CompleteGraph:
     def __init__(self, n, jumps):
@@ -139,11 +176,9 @@ class CyclicGraph:
         self.energies = np.array([2 * np.cos(2 * np.pi * i / n) for i in range(0, n)])
 
     def adj_matrix(n):
-        if n==2:
-            return [[0, 2], [2, 0]]
-        return [
+        return np.array([
             [1 if abs(i - j) in [1, n - 1] else 0 for j in range(n)] for i in range(n)
-        ]
+        ])
 
     def jumps_transition(self, a, b, l, m):
         if self.jumps == "diagonal":
@@ -164,12 +199,9 @@ class CyclicGraph:
         return (((a + m - l - b) % n) == 0) * 1 / n
 
     def jumps_diag_decay(self, a, l, j):
-        coeff = 0
-        if l == a:
-            coeff = 1 / self.n 
-
-        return coeff
-
+        n = self.n
+        return (l == a) * 1 /n
+    
     def jumps_adjacent_trans(
         self, a, b, l, m
     ):  # returns the ((a,b), (l,m)) jump coefficient of the Lindbladian, using jumps to adjacent vertices
@@ -194,7 +226,7 @@ class PathGraph:
         )
 
     def adj_matrix(n):
-        return [[1 if abs(i - j) == 1 else 0 for j in range(n)] for i in range(n)]
+        return np.array([[1 if abs(i - j) == 1 else 0 for j in range(n)] for i in range(n)])
 
     def jumps_transition(self, a, b, l, m):
         if self.jumps == "diagonal":

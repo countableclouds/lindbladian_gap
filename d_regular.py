@@ -34,7 +34,7 @@ LOAD = False
 SAVE = False
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
 start = 5
-end = 30
+end = 15
 TRIALS = 100
 d = 4
 seed = 0
@@ -45,17 +45,18 @@ if LOAD:
     print('Loaded.')
 else:
     for n in range(start, end):
+        N= np.identity(n)
         try:
             trial_data = []
             for trial in range(TRIALS):
                 G_draw, M = regular_sample(d, n, hash((d, n, trial, seed)))
-                G = graph.Graph.from_name(GRAPH)(M, n, "diagonal")
+                G = graph.Graph.from_name(GRAPH, adj=M)(M)
                 L = lindbladian.Lindbladian(G, F)
+                L.initialize()
                 trial_data.append(L.spectral_gap(assertion=True))
                 if trial%25==0:
                     print(n, trial, trial_data[-1])
                 
-
             trial_data = [elem for elem in trial_data if round(elem, 10)!=0]
             
             gap = np.mean(trial_data)
@@ -63,7 +64,7 @@ else:
             print(gap, std, std / np.sqrt(TRIALS),std / np.sqrt(TRIALS)/gap*100)
             err.append(std / np.sqrt(TRIALS))
             gaps_.append(gap)
-        except:
+        except KeyboardInterrupt:
             break
 
         
@@ -93,3 +94,5 @@ figure.plot(ln_xs, ln_gaps, ax, labels, line=[SLOPE, b])
 
 if SAVE:
     fig.savefig(f"figures/lnln_{NAME}.pdf", bbox_inches='tight', pad_inches=0.25)
+
+plt.show()

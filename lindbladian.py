@@ -10,73 +10,62 @@ class Lindbladian:
         H = np.matrix(np.diag(self.graph.energies))
         self.rho = linalg.expm(-filter.beta * H)  # the steady state in the energy basis
         self.rho /= self.rho.trace()
+
+    def initialize(self):
         self.M_d, self.M_c = self.lindbladian_matrix()
         self.M = self.M_d + self.M_c
         self.discriminant()
         
-
-    # def lindbladian_matrix(self):
-    #     return self.dissipative_matrix() + self.coherent_matrix()
-
     def discriminant(self):
         n = self.graph.n
-        s = linalg.sqrtm(linalg.sqrtm(self.rho))
-        O_t = np.zeros((n, n, n, n))
-        for l, m in itertools.product(range(0, n), repeat=2):
-            L = np.matrix(np.zeros((n, n)))
-            L[l, m] = 1
+        s = np.diag(self.rho)**(1/4)
+        a, b, l, m = np.indices((n, n, n, n))
+        rescale_factor = np.array((s[a]**(-1) * s[b]**(-1) * s[l] * s[m]).reshape(n**2, n**2))
+        self.D = np.multiply(rescale_factor, self.M)
+        
 
-            O_t[:, :, l, m] = s * L * s
-
-        O = np.matrix(O_t.reshape(n**2, n**2))
-
-        P_t = np.zeros((n, n, n, n))
-        for l, m in itertools.product(range(0, n), repeat=2):
-            L = np.matrix(np.zeros((n, n)))
-            L[l, m] = 1
-            t = np.linalg.inv(s)
-            P_t[:, :, l, m] = t * L * t
-        P = np.matrix(P_t.reshape(n**2, n**2))
-
-        def sgn(x):
-            return 0 if x >= 0 else 1
-
+    def cyclic_reshape(self):
+        n = self.graph.n
         indices = []
         for i in range(n):
             for j in range(n):
                 indices.append(j * n + (i + j) % n)
                 
-        self.D = (P * self.M_d * O)[np.ix_(indices, indices)]
+        self.D = self.D[np.ix_(indices, indices)]
         self.M_d = self.M_d[np.ix_(indices, indices)]
         self.M_c = self.M_c[np.ix_(indices, indices)]
+        self.M = self.M[np.ix_(indices, indices)]
 
-    def mat_spectral_gap(M, exact=True, eigs=False, assertion=True):
-        if exact:
-            eig = np.linalg.eigvals(M)
-        else:
-            eig = np.linalg.eigvalsh(M)
+    def mat_spectral_gap(M,  nullity, assertion=True, eigs=False):
+        nullity = int(nullity)
+        assert np.round(abs(M - M.transpose()).max(), 10)==0
+        eig = np.linalg.eigvalsh(M)
+        
         np.matrix.sort(eig)
         if eigs:
             return np.round(np.real(eig), 10)
         rounded_eig = np.matrix.round(eig.real, 10)
         if assertion:
-            assert rounded_eig[0].real == 0
-        gap = (eig[1] - eig[0]).real
+            if nullity!=0:
+                assert rounded_eig[nullity-1]==0
+        gap = eig[nullity].real
+        
         return gap
 
-    def spectral_gap(self, exact=True, eigs=False, assertion=True):
+    def spectral_gap(self, exact=True, nullity = 1, assertion=True, eigs=False):
         M = -self.D
-        gap = Lindbladian.mat_spectral_gap(M, exact, eigs, assertion)
+        gap = Lindbladian.mat_spectral_gap(M, nullity, assertion, eigs)
         return gap
 
+    def v(self, i, j):
+        return self.graph.energies[i] - self.graph.energies[j]
+    
     def lindbladian_matrix(
         self,
-    ):  # Return the matrix for the dissipative part of the Lindbladian with respect to the energy basis
+    ):  
         n = self.graph.n
         graph, filter = self.graph, self.filter
-
-        def v(i, j):
-            return graph.energies[i] - graph.energies[j]
+        v = self.v
 
         C_bohr = np.zeros((n, n), dtype=complex)
         C_coh = np.zeros((n, n), dtype=complex)
@@ -110,5 +99,45 @@ class Lindbladian:
         M_c = np.matrix(C.reshape(n**2, n**2))
         
 
-
         return D, M_c
+    
+    def block(
+        self, indices
+    ):  # Return the matrix for the dissipative part of the Lindbladian with respect to the energy basis
+        n = self.graph.n
+        assert len(indices)==n
+        graph, filter = self.graph, self.filter
+        v = self.v
+
+        C_bohr = np.zeros((n,), dtype=complex)
+        C_coh = np.zeros((n,), dtype=complex)
+
+        j, k = np.indices((n, n))
+        decay_coeff = graph.jumps_decay(k, k, j)
+        C_bohr += (filter.bohr_coefficient(v(j, k), v(j, k)) * decay_coeff).sum(axis=0)
+        C_coh += (filter.coherent_coefficient(v(j, k), v(j, k))* decay_coeff).sum(axis=0)
+
+        M = np.zeros((n, n), dtype=complex)
+        C = np.zeros((n, n), dtype=complex)
+        
+        i, j = np.indices((n, n))
+        a, b = indices[i, 0], indices[i, 1]
+        l, m = indices[j, 0], indices[j, 1]
+        M += graph.jumps_transition(a, b, l, m)* filter.bohr_coefficient(v(a, l), v(b, m))
+
+        i = np.indices((n,))[0]
+        a, b = indices[i, 0], indices[i, 1]
+        M += np.diag(-1 / 2 * (C_bohr[a]+C_bohr[b]))
+        C += np.diag(-1 / 2 * (C_coh[a]-C_coh[b]))
+        
+        M= M+C
+        
+        n = self.graph.n
+        s = np.diag(self.rho)**(1/4)
+        i, j = np.indices((n, n))
+        a, b = indices[i, 0], indices[i, 1]
+        l, m = indices[j, 0], indices[j, 1]
+        rescale_factor = np.array((s[a]**(-1) * s[b]**(-1) * s[l] * s[m]).reshape(n, n))
+        D = np.multiply(rescale_factor, M)
+        
+        return M, D

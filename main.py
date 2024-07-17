@@ -7,12 +7,14 @@ import graph
 import data
 import lindbladian
 import figure
+from scipy.linalg import block_diag
+
 
 
 beta = 1
 gaps_ = []
 
-GRAPH= 'cyclic'
+GRAPH= 'cyclcic'
 FILTER = 'ckg_metropolis'
 SLOPE = 0
 NAME = f"{FILTER}_{GRAPH}"
@@ -25,7 +27,7 @@ if LOAD:
     gaps_ = data.load(NAME)
 
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
-start = 4
+start = 2
 end = 20
 pbar = tqdm(total=end-start)
 
@@ -37,10 +39,15 @@ else:
         
         M = graph.CyclicGraph.adj_matrix(n)
         N= np.array(graph.CyclicGraph.adj_matrix(n))/np.sqrt(2)
-        N= np.identity(n)
-        G = graph.Graph.from_name(GRAPH, adj = M)(n, N)
+        # N= np.identity(n)
+        # G = graph.Graph.from_name(GRAPH)(n, 'adjacent')
+        G = graph.Graph.from_adjacency(M)(N)
         L = lindbladian.Lindbladian(G, F)
-        gaps_.append(L.spectral_gap(assertion=True))
+        L.initialize()
+        L.cyclic_reshape()
+        
+        gaps_.append(L.spectral_gap())
+        # print(gaps_)
         elapsed_time = time.time() - start_time
         pbar.set_postfix({"Elapsed Time": f"{elapsed_time:.2f}s"})
         pbar.update(1)
