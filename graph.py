@@ -18,11 +18,16 @@ class Graph:
         if type =='hypercube':
             return HypercubeGraph
         
-    def from_adjacency(adj, eig = None):
-        return lambda jumps: GenericGraph(adj, adj.shape[0], jumps, eig)
+    def from_adjacency(adj):
+        return lambda jumps, eig=None: GenericGraph(adj, adj.shape[0], jumps, eig)
         
 class GenericGraph:
-    def __init__(self, M, n, jumps, eig = None):
+    def __init__(self, M, n, jumps, eig = None): 
+        ## jumps is a list of 3-tuples of the rows index of the jumps, the column 
+        ## index of the jumps, and the magnitude of the jump operator. These are all
+        ## 1d arrays, where the list enumerates the jump operator, and the 1d 
+        ## arrays are for a given jump operator
+        
         self.n = n
         self.hamiltonian = M
 
@@ -32,18 +37,30 @@ class GenericGraph:
             eig = np.linalg.eigh(M)
         self.energies = np.array(eig.eigenvalues)
         self.eigenbasis = np.array(eig.eigenvectors)
-        jump_nonzeros = np.array([self.jumps[np.nonzero(self.jumps)]]).transpose()
-        self.jump_rows = np.sqrt(jump_nonzeros) * self.eigenbasis[np.nonzero(self.jumps)[0], :]
-        self.jump_columns = np.sqrt(jump_nonzeros) * self.eigenbasis[np.nonzero(self.jumps)[1], :]
+        
+        self.jump_coeffs= np.zeros((len(jumps), n, n), dtype=complex)
+        for j, jump in enumerate(jumps):
+            rows, columns, mags = jump
+            a, l = np.indices((n, n))
+            i = np.array(range(0, len(rows)))
+            A = self.eigenbasis[rows[i][:, np.newaxis, np.newaxis], a]
+            B = mags*self.eigenbasis[columns[i][:, np.newaxis, np.newaxis], l]
+            jump_coeff = np.sum(A.conjugate()* B, axis=0)
+            
+            self.jump_coeffs[j, :, :] = jump_coeff
+
+        
 
     def jumps_transition(
         self, a, b, l, m
-    ):  # returns the ((a,b), (l,m)) jump coefficient of the Lindbladian, using jumps to adjacent vertices
+    ):  # returns the ((a,b), (l,m)) jump coefficient of the Lindbladian, for the ith jump operator
         n = self.n
-        S = np.sum(self.jump_rows[:, a].conjugate() * # this is c_{ia}, since each column is an eigenvector
-                 self.jump_rows[:, b] * 
-                 self.jump_columns[:, l] * 
-                 self.jump_columns[:, m].conjugate(), axis=0)
+        # S = np.sum(self.eigenbasis[:, a] * # this is c_{ia}, since each column is an eigenvector
+        #     self.eigenbasis[:, b] * 
+        #     self.eigenbasis[:, l] * 
+        #     self.eigenbasis[:, m], axis=0)
+        
+        S = np.sum(self.jump_coeffs[:, a, l]*self.jump_coeffs[:, b, m].conjugate(), axis=0)
 
         return S
 

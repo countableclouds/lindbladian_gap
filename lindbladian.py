@@ -3,6 +3,14 @@ import itertools
 from scipy import linalg
 import time
 
+def sparsify_jump(jump):
+    nonzero = np.nonzero(jump)
+    mag = jump[nonzero]
+    rows = nonzero[0]
+    columns =  nonzero[1]
+    return rows, columns, mag
+    
+
 class Lindbladian:
     def __init__(self, graph, filter):
         self.graph = graph

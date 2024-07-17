@@ -4,11 +4,11 @@ from tqdm import tqdm
 import time
 import filter
 import graph
+from graph import HypercubeGraph, EigResult
 import data
-import lindbladian
+from lindbladian import Lindbladian, sparsify_jump
 import figure
 from scipy.linalg import block_diag
-
 
 
 beta = 1
@@ -16,7 +16,7 @@ gaps_ = []
 
 GRAPH= 'cyclcic'
 FILTER = 'ckg_metropolis'
-SLOPE = 0
+SLOPE = -2
 NAME = f"{FILTER}_{GRAPH}"
 
 F = filter.Filter.from_name(FILTER)(1)
@@ -28,7 +28,7 @@ if LOAD:
 
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
 start = 2
-end = 20
+end = 6
 pbar = tqdm(total=end-start)
 
 if LOAD:
@@ -38,11 +38,22 @@ else:
         start_time = time.time()
         
         M = graph.CyclicGraph.adj_matrix(n)
-        N= np.array(graph.CyclicGraph.adj_matrix(n))/np.sqrt(2)
-        # N= np.identity(n)
-        # G = graph.Graph.from_name(GRAPH)(n, 'adjacent')
-        G = graph.Graph.from_adjacency(M)(N)
-        L = lindbladian.Lindbladian(G, F)
+
+        jumps = []
+        nonzero = np.nonzero(M)
+        for i in range(len(nonzero[0])):
+            N= np.zeros((n, n))
+            N[nonzero[0][i], nonzero[1][i]] = 2**(-0.5)
+            jumps.append(sparsify_jump(N))
+
+        # for i in range(n):
+        #     N= np.zeros((n, n))
+        #     N[i, i] = 1
+        #     jumps.append(sparsify_jump(N))
+
+        G = graph.Graph.from_adjacency(M)(jumps)
+        # G = graph.Graph.from_name('cyclic')(n, 'diagonal')
+        L = Lindbladian(G, F)
         L.initialize()
         L.cyclic_reshape()
         
@@ -51,6 +62,7 @@ else:
         elapsed_time = time.time() - start_time
         pbar.set_postfix({"Elapsed Time": f"{elapsed_time:.2f}s"})
         pbar.update(1)
+        # assert 0==1
         
         
     if SAVE:

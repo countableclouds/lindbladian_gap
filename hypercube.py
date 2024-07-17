@@ -5,7 +5,7 @@ import time
 from filter import Filter
 from graph import HypercubeGraph, Graph, EigResult
 import data
-from lindbladian import Lindbladian
+from lindbladian import Lindbladian, sparsify_jump
 import figure
 from scipy.linalg import block_diag
 
@@ -27,7 +27,7 @@ if LOAD:
 
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
 start = 2
-end = 8
+end = 6
 pbar = tqdm(total=end-start)
 
 if LOAD:
@@ -44,12 +44,37 @@ else:
         eigenvectors = HypercubeGraph.eigenvectors(d)
         eigenvector_preset = EigResult(eigenvalues = eigenvalues, 
                                        eigenvectors = eigenvectors)
-        N= np.identity(n)
-        N = M
-        G = Graph.from_name(GRAPH, adj = M, eig = eigenvector_preset)(N)
+        
+        
+        X = np.matrix([[0, 1], [1, 0]])
+        I_2 = np.eye(2, 2)
+        I = np.eye(2, 2)
+        for _ in range(d-2):
+            I = np.tensordot(I, I_2, axes=0)
+        X_0 = np.tensordot(X, I, axes=0)            
+        jumps = []
+        for i in range(d):
+            order= list(range(2, 2*(i+1))) + [0, 1]+list(range(2*(i+1), 2*d))
+            X_i = np.transpose(X_0, order)
+            jumps.append(sparsify_jump(X_i))
+        # print(len(jumps))
+        
+        # jumps = []
+        # nonzero = np.nonzero(M)
+        # for i in range(len(nonzero[0])):
+        #     N= np.zeros((n, n))
+        #     N[nonzero[0][i], nonzero[1][i]] = 1
+        #     jumps.append(sparsify_jump(N))
+                
+        # for i in range(n):
+        #     N= np.zeros((n, n))
+        #     N[i, i] = 1
+        #     jumps.append(sparsify_jump(N))
+
+
+        G = Graph.from_adjacency(M)(jumps, eig = eigenvector_preset)
         # G = Graph.from_name('hypercube')(d, 'diagonal')
-        # print(eigenvectors)
-        # print(G.energies)
+
         L = Lindbladian(G, F)
         
         block_gaps = []
@@ -57,13 +82,16 @@ else:
             indices, _ = np.indices((n, 2))
             indices[:, 1] = (indices[:, 1]^k)%n
             M,D =L.block(indices)
+
             # print(D)
             if k ==0:
                 block_gaps.append(Lindbladian.mat_spectral_gap(-D, 1))
             else:
                 block_gaps.append(Lindbladian.mat_spectral_gap(-D, 0))
-        
         gaps_.append(min(block_gaps))
+
+        # L.initialize()
+        # gaps_.append(L.spectral_gap())
         elapsed_time = time.time() - start_time
         pbar.set_postfix({"Elapsed Time": f"{elapsed_time:.2f}s"})
         pbar.update(1)
