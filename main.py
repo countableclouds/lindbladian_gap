@@ -16,10 +16,10 @@ gaps_ = []
 
 GRAPH= 'cyclcic'
 FILTER = 'ckg_metropolis'
-SLOPE = -2
+SLOPE = -6
 NAME = f"{FILTER}_{GRAPH}"
 
-F = filter.Filter.from_name(FILTER)(1)
+
 LOAD = False
 SAVE = False
 
@@ -28,28 +28,29 @@ if LOAD:
 
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
 start = 2
-end = 6
+end = 30
 pbar = tqdm(total=end-start)
 
 if LOAD:
     print('Loaded.')
 else:
     for n in range(start, end):
+        F = filter.Filter.from_name(FILTER)(1/n)
         start_time = time.time()
         
         M = graph.CyclicGraph.adj_matrix(n)
 
         jumps = []
         nonzero = np.nonzero(M)
-        for i in range(len(nonzero[0])):
-            N= np.zeros((n, n))
-            N[nonzero[0][i], nonzero[1][i]] = 2**(-0.5)
-            jumps.append(sparsify_jump(N))
-
-        # for i in range(n):
+        # for i in range(len(nonzero[0])):
         #     N= np.zeros((n, n))
-        #     N[i, i] = 1
+        #     N[nonzero[0][i], nonzero[1][i]] = 2**(-0.5)
         #     jumps.append(sparsify_jump(N))
+
+        for i in range(n):
+            N= np.zeros((n, n))
+            N[i, i] = 1
+            jumps.append(sparsify_jump(N))
 
         G = graph.Graph.from_adjacency(M)(jumps)
         # G = graph.Graph.from_name('cyclic')(n, 'diagonal')

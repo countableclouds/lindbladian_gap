@@ -31,24 +31,22 @@ class GenericGraph:
         self.n = n
         self.hamiltonian = M
 
-        self.jumps = np.array(jumps)
         
         if eig is None:
             eig = np.linalg.eigh(M)
         self.energies = np.array(eig.eigenvalues)
         self.eigenbasis = np.array(eig.eigenvectors)
-        
         self.jump_coeffs= np.zeros((len(jumps), n, n), dtype=complex)
         for j, jump in enumerate(jumps):
             rows, columns, mags = jump
             a, l = np.indices((n, n))
             i = np.array(range(0, len(rows)))
             A = self.eigenbasis[rows[i][:, np.newaxis, np.newaxis], a]
-            B = mags*self.eigenbasis[columns[i][:, np.newaxis, np.newaxis], l]
+            B = self.eigenbasis[columns[i][:, np.newaxis, np.newaxis], l]
+            B = mags.reshape((len(rows), 1, 1))*B
             jump_coeff = np.sum(A.conjugate()* B, axis=0)
             
             self.jump_coeffs[j, :, :] = jump_coeff
-
         
 
     def jumps_transition(
