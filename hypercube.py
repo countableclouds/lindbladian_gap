@@ -27,7 +27,7 @@ if LOAD:
 
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
 start = 2
-end = 10
+end = 6
 pbar = tqdm(total=end-start)
 
 if LOAD:
@@ -46,41 +46,41 @@ else:
                                        eigenvectors = eigenvectors)
         
         
-        # X = np.matrix([[0, 1], [1, 0]])
-        # Y = np.matrix([[0, -1j], [1j, 0]])
-        # Z = np.matrix([[1, 0], [0, -1]])
-        # P = [X, Y, Z]
-        # I_2 = np.eye(2, 2)
-        # I = np.eye(2, 2)
-        # for _ in range(d-2):
-        #     I = np.tensordot(I, I_2, axes=0)
-        # P_0 = [np.tensordot(S, I, axes=0) for S in P]       
-        # jumps = []
-        # for i in range(d):
-        #     order= list(range(2, 2*(i+1))) + [0, 1]+list(range(2*(i+1), 2*d))
-        #     P_i = [np.transpose(S_0, order) for S_0 in P_0]
+        X = np.matrix([[0, 1], [1, 0]])
+        Y = np.matrix([[0, -1j], [1j, 0]])
+        Z = np.matrix([[1, 0], [0, -1]])
+        P = [X, Y, Z]
+        I_2 = np.eye(2, 2)
+        I = np.eye(2, 2)
+        for _ in range(d-2):
+            I = np.tensordot(I, I_2, axes=0)
+        P_0 = [np.tensordot(S, I, axes=0) for S in P]       
+        jumps = []
+        for i in range(d):
+            order= list(range(2, 2*(i+1))) + [0, 1]+list(range(2*(i+1), 2*d))
+            P_i = [np.transpose(S_0, order) for S_0 in P_0]
             
-        #     order = list(range(0, 2*d, 2))+list(range(1, 2*d, 2))
+            order = list(range(0, 2*d, 2))+list(range(1, 2*d, 2))
             
-        #     P_i = [np.transpose(S_i, order).reshape(2**d, 2**d) for S_i in P_i]
-        #     jumps.append(sparsify_jump(P_i[0]))
-        #     jumps.append(sparsify_jump(P_i[1]))
-        #     jumps.append(sparsify_jump(P_i[2]))
+            P_i = [np.transpose(S_i, order).reshape(2**d, 2**d) for S_i in P_i]
+            jumps.append(sparsify_jump(P_i[0]))
+            jumps.append(sparsify_jump(P_i[1]))
+            jumps.append(sparsify_jump(P_i[2]))
                     
         # print(jumps)
         # print(len(jumps))
         
-        jumps = []
+        # jumps = []
         # nonzero = np.nonzero(M)
         # for i in range(len(nonzero[0])):
         #     N= np.zeros((n, n))
         #     N[nonzero[0][i], nonzero[1][i]] = 1
         #     jumps.append(sparsify_jump(N))
                 
-        for i in range(n):
-            N= np.zeros((n, n))
-            N[i, i] = 1
-            jumps.append(sparsify_jump(N))
+        # for i in range(n):
+        #     N= np.zeros((n, n))
+        #     N[i, i] = 1
+        #     jumps.append(sparsify_jump(N))
 
         # jumps = [sparsify_jump(np.eye(n))]
         G = Graph.from_adjacency(M)(jumps, eig=eigenvector_preset)
@@ -88,23 +88,23 @@ else:
 
         L = Lindbladian(G, F)
         
-        block_gaps = []
-        for k in range(2):
-            indices, _ = np.indices((n, 2))
-            indices[:, 1] = (indices[:, 1]^k)%n
-            M,D =L.block(indices)
+        # block_gaps = []
+        # for k in range(2):
+        #     indices, _ = np.indices((n, 2))
+        #     indices[:, 1] = (indices[:, 1]^k)%n
+        #     M,D =L.block(indices)
 
-            # print(D)
-            if k ==0:
-                block_gaps.append(Lindbladian.mat_spectral_gap(-D, 1))
-            else:
-                block_gaps.append(Lindbladian.mat_spectral_gap(-D, 0))
-        gaps_.append(min(block_gaps))
-        print(np.argmin(gaps_))
+        #     # print(D)
+        #     if k ==0:
+        #         block_gaps.append(Lindbladian.mat_spectral_gap(-D, 1))
+        #     else:
+        #         block_gaps.append(Lindbladian.mat_spectral_gap(-D, 0))
+        # gaps_.append(min(block_gaps))
+        # print(np.argmin(gaps_))
 
-        # L.initialize()
+        L.initialize()
         # L.cyclic_reshape()
-        # gaps_.append(L.spectral_gap())
+        gaps_.append(L.spectral_gap())
         # print(gaps_[-1])
         elapsed_time = time.time() - start_time
         pbar.set_postfix({"Elapsed Time": f"{elapsed_time:.2f}s"})

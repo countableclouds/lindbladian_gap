@@ -21,6 +21,8 @@ class Filter:
             return GaussianFilterCKG
         if type=='davies_glauber':
             return GlauberFilter
+        if type =='constant':
+            return ConstantFilter
 
 class MetropolisFilterCKG:
     def __init__(self, beta, s_e = None): 
@@ -35,6 +37,7 @@ class MetropolisFilterCKG:
 
     
     def bohr_coefficient(self, v_1, v_2): # given two Bohr frequencies v_1 and v_2, get the filter scaling
+        # return ((v_1 + v_2)/2)**2
         s_e, beta = self.s_e, self.beta
         a = 1/(2 * s_e**2)
         b = -(v_1+v_2)/(2*s_e**2)
@@ -59,6 +62,24 @@ class MetropolisFilterCKG:
 
     def coherent_coefficient(self, v_1, v_2):
         beta = self.beta
+        return np.tanh(-beta * (v_1 - v_2)/4) * self.bohr_coefficient(v_1, v_2)
+    
+class ConstantFilter:
+    def __init__(self, beta, c): 
+        self.beta = beta
+        self.c = c # s_e is the standard deviation of the Gaussian filter on the operator Fourier transform
+
+    def weight(self, w): 
+        s_e, beta = self.s_e, self.beta
+        return np.exp(-beta * max(w + beta * s_e**2/2, 0))
+
+    
+    def bohr_coefficient(self, v_1, v_2): # given two Bohr frequencies v_1 and v_2, get the filter scaling
+        return self.c
+
+    def coherent_coefficient(self, v_1, v_2):
+        beta = self.beta
+        return 0
         return np.tanh(-beta * (v_1 - v_2)/4) * self.bohr_coefficient(v_1, v_2)
 
 

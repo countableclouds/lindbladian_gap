@@ -57,20 +57,20 @@ beta = 1
 gaps_ = []
 
 GRAPH= '2_regular'
-FILTER = 'davies_metropolis'
-SLOPE = 0
+FILTER = 'ckg_metropolis'
+SLOPE = 0   
 NAME = f"{FILTER}_{GRAPH}"
 
-F = filter.Filter.from_name(FILTER)(1)
 
 
-LOAD = False
-SAVE = True
+
+LOAD = True
+SAVE = False
 #Start = 4 and End = 50 for most of them, start = 1 and end = something for hypercube (fix this)
-start = 4
+start = 6
 end = 25
 TRIALS = 100
-d = 2
+d = 3
 seed = 0
 err= []
 
@@ -79,25 +79,26 @@ if LOAD:
     print('Loaded.')
 else:
     for n in range(start, end, 2):
+        F = filter.Filter.from_name(FILTER)(1, s_e = 1/np.sqrt(n))
         # N= np.identity(n)
         try:
             trial_data = []
             for trial in tqdm(range(TRIALS)):
-                G_draw, M, color = regular_sample_2(d, n)
+                G_draw, M = regular_sample(d, n)
                 
-                jumps = []
-                for key in color.keys():
-                    N= np.zeros((n, n))
-                    for edge in color[key]:
-                        N[edge[0], edge[1]] = 1
-                    jumps.append(lindbladian.sparsify_jump(N))
-                    jumps.append(lindbladian.sparsify_jump(N.conjugate().transpose()))
-
                 # jumps = []
-                # for i in range(n):
+                # for key in color.keys():
                 #     N= np.zeros((n, n))
-                #     N[i, i] = 1
+                #     for edge in color[key]:
+                #         N[edge[0], edge[1]] = 1
                 #     jumps.append(lindbladian.sparsify_jump(N))
+                #     jumps.append(lindbladian.sparsify_jump(N.conjugate().transpose()))
+
+                jumps = []
+                for i in range(n):
+                    N= np.zeros((n, n))
+                    N[i, i] = 1
+                    jumps.append(lindbladian.sparsify_jump(N))
 
                 G = graph.Graph.from_adjacency(M)(jumps)
                 

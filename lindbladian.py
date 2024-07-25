@@ -29,8 +29,7 @@ class Lindbladian:
         s = np.diag(self.rho)**(1/4)
         a, b, l, m = np.indices((n, n, n, n))
         rescale_factor = np.array((s[a]**(-1) * s[b]**(-1) * s[l] * s[m]).reshape(n**2, n**2))
-        self.D = np.multiply(rescale_factor, self.M)
-        
+        self.D = np.multiply(rescale_factor, self.M)        
 
     def cyclic_reshape(self):
         n = self.graph.n
@@ -46,7 +45,7 @@ class Lindbladian:
 
     def mat_spectral_gap(M,  nullity, assertion=True, eigs=False):
         nullity = int(nullity)
-        assert np.round(abs(M - M.transpose()).max(), 10)==0
+        assert np.round(abs(M - M.transpose().conjugate()).max(), 10)==0
         eig = np.linalg.eigvalsh(M)
         
         np.matrix.sort(eig)
@@ -106,7 +105,6 @@ class Lindbladian:
         D = np.matrix(M.reshape(n**2, n**2))
         M_c = np.matrix(C.reshape(n**2, n**2))
         
-
         return D, M_c
     
     def block(
@@ -116,6 +114,7 @@ class Lindbladian:
         assert len(indices)==n
         graph, filter = self.graph, self.filter
         v = self.v
+        # v = lambda j, k: j-k
 
         C_bohr = np.zeros((n,), dtype=complex)
         C_coh = np.zeros((n,), dtype=complex)
@@ -145,6 +144,7 @@ class Lindbladian:
         i, j = np.indices((n, n))
         a, b = indices[i, 0], indices[i, 1]
         l, m = indices[j, 0], indices[j, 1]
+        
         rescale_factor = np.array((s[a]**(-1) * s[b]**(-1) * s[l] * s[m]).reshape(n, n))
         D = np.multiply(rescale_factor, M)
         

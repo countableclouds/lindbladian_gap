@@ -188,8 +188,16 @@ class CyclicGraph:
         self.n = n
         self.hamiltonian = np.matrix(CyclicGraph.adj_matrix(n))
         self.jumps = jumps
-        self.energies = np.array([2 * np.cos(2 * np.pi * i / n) for i in range(0, n)])
+        self.energies = np.array(CyclicGraph.energies(n))
 
+    def energies(n):
+        return [2 * np.cos(2 * np.pi * i / n) for i in range(0, n)]
+    
+    def eigenvectors(n):
+        a, b = np.indices((n, n))
+        z_n = np.exp(complex(0, 2 * np.pi / n))
+        return z_n ** (a*b)/np.sqrt(n)
+        
     def adj_matrix(n):
         return np.array([
             [1 if abs(i - j) in [1, n - 1] else 0 for j in range(n)] for i in range(n)
@@ -236,9 +244,14 @@ class PathGraph:
         self.hamiltonian = np.matrix(PathGraph.adj_matrix(n))
         self.jumps = jumps
         self.adj_matrix = PathGraph.adj_matrix(n)
-        self.energies = np.array(
-            [2 * np.cos(np.pi * i / (n + 1)) for i in range(1, n + 1)]
-        )
+        self.energies = np.array(PathGraph.energies(n))
+        
+    def energies(n):
+        return [2 * np.cos(np.pi * i / (n + 1)) for i in range(1, n + 1)]
+    
+    def eigenvectors(n):
+        a, b = np.indices((n, n))
+        return np.sqrt(2/(n+1))*np.sin(np.pi *  (a+1)* (b+1)/(n+1))
 
     def adj_matrix(n):
         return np.array([[1 if abs(i - j) == 1 else 0 for j in range(n)] for i in range(n)])
